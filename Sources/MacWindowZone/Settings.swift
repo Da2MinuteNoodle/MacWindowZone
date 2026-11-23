@@ -82,6 +82,127 @@ enum PortraitEdgeBehavior: String, CaseIterable {
     }
 }
 
+/// Colors and opacities of the drag-snap / edge-snap preview.
+///
+/// Default matches the original overlay: system blue highlight at 45%,
+/// system teal zones at 18%, borders at 95%. "System" colors follow
+/// light and dark mode; a picked color is stored as fixed sRGB.
+struct OverlayPalette: Equatable {
+    var highlightIsSystem: Bool
+    var highlightRed: Double
+    var highlightGreen: Double
+    var highlightBlue: Double
+    var zoneIsSystem: Bool
+    var zoneRed: Double
+    var zoneGreen: Double
+    var zoneBlue: Double
+    /// Fill opacity of the zone under the cursor, a multi-zone union, and edge-snap previews.
+    var highlightOpacity: Double
+    /// Fill opacity of the other zones shown while the drag modifier is held.
+    var zoneOpacity: Double
+    /// Stroke opacity for both highlight and idle zones.
+    var borderOpacity: Double
+
+    static let `default` = OverlayPalette(
+        highlightIsSystem: true,
+        highlightRed: 0, highlightGreen: 0, highlightBlue: 0,
+        zoneIsSystem: true,
+        zoneRed: 0, zoneGreen: 0, zoneBlue: 0,
+        highlightOpacity: 0.45,
+        zoneOpacity: 0.18,
+        borderOpacity: 0.95
+    )
+
+    mutating func clamp() {
+        highlightRed = Self.unit(highlightRed)
+        highlightGreen = Self.unit(highlightGreen)
+        highlightBlue = Self.unit(highlightBlue)
+        zoneRed = Self.unit(zoneRed)
+        zoneGreen = Self.unit(zoneGreen)
+        zoneBlue = Self.unit(zoneBlue)
+        highlightOpacity = Self.unit(highlightOpacity)
+        zoneOpacity = Self.unit(zoneOpacity)
+        borderOpacity = Self.unit(borderOpacity)
+    }
+
+    private static func unit(_ value: Double) -> Double {
+        min(1, max(0, value.isFinite ? value : 0))
+    }
+
+    func opaqueColor(active: Bool) -> NSColor {
+        if active {
+            if highlightIsSystem { return .systemBlue }
+            return NSColor(srgbRed: highlightRed, green: highlightGreen, blue: highlightBlue, alpha: 1)
+        }
+        if zoneIsSystem { return .systemTeal }
+        return NSColor(srgbRed: zoneRed, green: zoneGreen, blue: zoneBlue, alpha: 1)
+    }
+
+    func fillColor(active: Bool) -> NSColor {
+        let opacity = active ? highlightOpacity : zoneOpacity
+        return opaqueColor(active: active).withAlphaComponent(opacity)
+    }
+
+    func strokeColor(active: Bool) -> NSColor {
+        opaqueColor(active: active).withAlphaComponent(borderOpacity)
+    }
+
+    /// `scale` shrinks the inset, corner radius, and stroke for a small preview.
+    /// The on-screen overlay uses the default of 1.
+    func drawZone(in rect: NSRect, active: Bool, scale: CGFloat = 1) {
+        let inset = rect.insetBy(dx: 6 * scale, dy: 6 * scale)
+        guard inset.width > 2, inset.height > 2 else { return }
+        let path = NSBezierPath(roundedRect: inset, xRadius: 12 * scale, yRadius: 12 * scale)
+        fillColor(active: active).setFill()
+        path.fill()
+        strokeColor(active: active).setStroke()
+        path.lineWidth = max(1, (active ? 3 : 1.5) * scale)
+        path.stroke()
+    }
+}
+
+extension OverlayPalette: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case highlightIsSystem
+        case highlightRed, highlightGreen, highlightBlue
+        case zoneIsSystem
+        case zoneRed, zoneGreen, zoneBlue
+        case highlightOpacity, zoneOpacity, borderOpacity
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let fallback = OverlayPalette.default
+        highlightIsSystem = try container.decodeIfPresent(Bool.self, forKey: .highlightIsSystem) ?? fallback.highlightIsSystem
+        highlightRed = try container.decodeIfPresent(Double.self, forKey: .highlightRed) ?? fallback.highlightRed
+        highlightGreen = try container.decodeIfPresent(Double.self, forKey: .highlightGreen) ?? fallback.highlightGreen
+        highlightBlue = try container.decodeIfPresent(Double.self, forKey: .highlightBlue) ?? fallback.highlightBlue
+        zoneIsSystem = try container.decodeIfPresent(Bool.self, forKey: .zoneIsSystem) ?? fallback.zoneIsSystem
+        zoneRed = try container.decodeIfPresent(Double.self, forKey: .zoneRed) ?? fallback.zoneRed
+        zoneGreen = try container.decodeIfPresent(Double.self, forKey: .zoneGreen) ?? fallback.zoneGreen
+        zoneBlue = try container.decodeIfPresent(Double.self, forKey: .zoneBlue) ?? fallback.zoneBlue
+        highlightOpacity = try container.decodeIfPresent(Double.self, forKey: .highlightOpacity) ?? fallback.highlightOpacity
+        zoneOpacity = try container.decodeIfPresent(Double.self, forKey: .zoneOpacity) ?? fallback.zoneOpacity
+        borderOpacity = try container.decodeIfPresent(Double.self, forKey: .borderOpacity) ?? fallback.borderOpacity
+        clamp()
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(highlightIsSystem, forKey: .highlightIsSystem)
+        try container.encode(highlightRed, forKey: .highlightRed)
+        try container.encode(highlightGreen, forKey: .highlightGreen)
+        try container.encode(highlightBlue, forKey: .highlightBlue)
+        try container.encode(zoneIsSystem, forKey: .zoneIsSystem)
+        try container.encode(zoneRed, forKey: .zoneRed)
+        try container.encode(zoneGreen, forKey: .zoneGreen)
+        try container.encode(zoneBlue, forKey: .zoneBlue)
+        try container.encode(highlightOpacity, forKey: .highlightOpacity)
+        try container.encode(zoneOpacity, forKey: .zoneOpacity)
+        try container.encode(borderOpacity, forKey: .borderOpacity)
+    }
+}
+
 /// User-tunable runtime settings. Persisted to UserDefaults.
 final class Settings {
     static let shared = Settings()
@@ -94,6 +215,7 @@ final class Settings {
         static let edgeSnapEnabled = "MWZ.edgeSnapEnabled"
         static let edgeSnapBuffer = "MWZ.edgeSnapBuffer"
         static let portraitEdgeBehavior = "MWZ.portraitEdgeBehavior"
+        static let overlayPalette = "MWZ.overlayPalette"
     }
 
     /// Bundle IDs whose windows must NOT be auto-restored on launch.
@@ -170,6 +292,23 @@ final class Settings {
         }
     }
 
+    /// Look of the translucent overlay shown while edge-snapping or picking zones.
+    var overlayPalette: OverlayPalette {
+        didSet {
+            var clamped = overlayPalette
+            clamped.clamp()
+            if clamped != overlayPalette {
+                overlayPalette = clamped
+                return
+            }
+            guard overlayPalette != oldValue else { return }
+            if let data = try? JSONEncoder().encode(overlayPalette) {
+                defaults.set(data, forKey: Keys.overlayPalette)
+            }
+            NotificationCenter.default.post(name: .settingsChanged, object: nil)
+        }
+    }
+
     /// Set of bundle IDs whose windows are NOT auto-restored on launch.
     var ignoredForRestore: Set<String> {
         didSet {
@@ -223,6 +362,12 @@ final class Settings {
             self.portraitEdgeBehavior = behavior
         } else {
             self.portraitEdgeBehavior = .topFillsSidesSplit
+        }
+        if let data = defaults.data(forKey: Keys.overlayPalette),
+           let stored = try? JSONDecoder().decode(OverlayPalette.self, from: data) {
+            self.overlayPalette = stored
+        } else {
+            self.overlayPalette = .default
         }
     }
 }

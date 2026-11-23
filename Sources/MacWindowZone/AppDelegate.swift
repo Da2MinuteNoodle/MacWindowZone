@@ -95,6 +95,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let editorTitle = ZoneEditorController.shared.isActive ? "Finish Editing Zones" : "Edit Zones…"
         menu.addItem(withTitle: editorTitle, action: #selector(toggleEditor), keyEquivalent: "e").target = self
 
+        let customize = NSMenuItem(
+            title: "Customize Overlay…",
+            action: #selector(showOverlayCustomizer),
+            keyEquivalent: ""
+        )
+        customize.target = self
+        customize.toolTip = "Colors and opacity of the edge-snap and zone-pick overlay"
+        menu.addItem(customize)
+
         menu.addItem(.separator())
 
         // Snap submenu for the focused window — current screen's zones.
@@ -331,6 +340,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func toggleEditor() {
         ZoneEditorController.shared.toggle()
         refreshMenu()
+    }
+
+    @objc private func showOverlayCustomizer() {
+        OverlayCustomizer.shared.show()
     }
 
     @objc private func toggleDragSnap() {

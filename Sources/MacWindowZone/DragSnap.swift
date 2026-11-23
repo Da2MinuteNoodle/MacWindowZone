@@ -63,8 +63,27 @@ final class DragSnapView: NSView {
         self.screen = screen
         super.init(frame: screen.frame)
         wantsLayer = true
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(overlaySettingsChanged),
+            name: .settingsChanged,
+            object: nil
+        )
     }
     required init?(coder: NSCoder) { fatalError() }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
+    @objc private func overlaySettingsChanged() {
+        needsDisplay = true
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        needsDisplay = true
+    }
 
     private func visibleFrameInView() -> NSRect {
         let vf = screen.visibleFrame
@@ -126,15 +145,7 @@ final class DragSnapView: NSView {
     }
 
     private func drawZone(rect: NSRect, active: Bool) {
-        let fill = (active ? NSColor.systemBlue : NSColor.systemTeal).withAlphaComponent(active ? 0.45 : 0.18)
-        let stroke = (active ? NSColor.systemBlue : NSColor.systemTeal).withAlphaComponent(0.95)
-        fill.setFill()
-        let inset = rect.insetBy(dx: 6, dy: 6)
-        NSBezierPath(roundedRect: inset, xRadius: 12, yRadius: 12).fill()
-        stroke.setStroke()
-        let path = NSBezierPath(roundedRect: inset, xRadius: 12, yRadius: 12)
-        path.lineWidth = active ? 3 : 1.5
-        path.stroke()
+        Settings.shared.overlayPalette.drawZone(in: rect, active: active)
     }
 }
 

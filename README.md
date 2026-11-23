@@ -28,6 +28,7 @@ A native macOS clone of Windows **FancyZones** — define rectangular zones on e
 - **Multi-zone drag** — while the overlay is showing, hold `⌃ Control` and drag across additional zones. The highlight grows to the bounding box of every zone you visit — two adjacent cells in a 2×2 become a half, three become fullscreen. (If the drag modifier is itself Control, hold `⌥ Option` instead.)
 - **Configurable drag modifier** — `Shift`, `Option`, `Command`, `Control`, none (always), or disabled.
 - **Snap to screen edges** — drag a window to the top of the display for fullscreen, to the left/right edges for halves, to a corner for a quarter. No modifier needed. Portrait displays are configurable: top edge fills the screen with sides splitting top/bottom (default), every edge splits top/bottom, or the same left/right halves as landscape.
+- **Customizable snap overlay** — color scheme and opacity of the translucent preview shown for edge snaps and while holding the drag modifier to pick zones. Open it from *Customize Overlay…* in the menu.
 - **Adjustable edge buffer** — how close the cursor must be to a screen edge to snap (default 24 pt). Widen this if you use side-by-side displays: macOS does not stop the cursor at the seam.
 - **Configurable gap** — visual breathing room between snapped windows (default 4 pt, preset choices 0–24 pt, or custom).
 - **Window memory** — when a window opens with the same app bundle + title prefix as a previously-snapped one, MacWindowZone restores it to its zone (or fallback frame).
@@ -135,6 +136,7 @@ Browsers are excluded by default (because attaching AX observers + `setFrame` du
 ```
 ✓ Accessibility granted · snap ready          (live status)
 Edit Zones…                                    open the picker + editor
+Customize Overlay…                            colors and opacity of the snap preview
 Snap Focused Window ▸ …                       sub-menu per screen
 Gap Between Windows: 4 px ▸ …                 visual gap between snapped windows
 Drag Modifier: Shift (⇧) ▸ …                  what modifier (if any) triggers snap-on-drag
@@ -168,6 +170,7 @@ Sources/MacWindowZone/
 ├── WindowAX.swift           # Thin wrapper over the Accessibility API
 ├── HotkeyManager.swift      # Carbon RegisterEventHotKey for ⌃⌥1–⌃⌥9
 ├── DragSnap.swift           # Global mouse monitor → overlay + snap on release
+├── OverlayCustomizer.swift  # Snap-overlay color and opacity panel
 ├── EdgeSnap.swift           # Aero-style edge/corner hit-testing (halves, quarters, full)
 ├── Snapper.swift            # Applies a Zone to an AXWindow + records memory
 ├── ZoneTemplate.swift       # Predefined layouts + thumbnail rendering
